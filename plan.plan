@@ -1,0 +1,229 @@
+QUERY PLAN
+Sort  (cost=3083458.94..3083458.95 rows=2 width=148) (actual time=2327579.722..2327730.526 rows=2528 loops=1)
+"  Sort Key: author.id, executor_beard.id_type, executor_beard.id, executor_beard.id_type, (COALESCE(CASE WHEN ((f_dp_resolution_exdatecur.execdatecurr IS NULL) OR ((f_dp_resolution_exdatecur.execdatecurr)::date = '0001-01-01'::date)) THEN NULL::date ELSE (f_dp_resolution_exdatecur.execdatecurr)::date END, (f_dp_resolution.ctrldeadline)::date))"
+  Sort Method: quicksort  Memory: 768kB
+  CTE person_stamp_values
+    ->  Index Scan using idx_person_stamp_person on person_stamp  (cost=0.29..3.28 rows=2 width=8) (actual time=0.052..0.058 rows=3 loops=1)
+          Index Cond: (person = 2976)
+  CTE cur_user_groups
+    ->  HashAggregate  (cost=1727.20..1740.92 rows=1372 width=8) (actual time=1.845..2.005 rows=1550 loops=1)
+          Group Key: gg.parent_group_id
+          ->  Nested Loop  (cost=0.85..1723.77 rows=1372 width=8) (actual time=0.115..1.432 rows=1550 loops=1)
+                ->  Index Scan using idx_cur_user_groups on group_member gm  (cost=0.42..3.45 rows=4 width=8) (actual time=0.093..0.104 rows=5 loops=1)
+                      Index Cond: (person_id = 2976)
+                ->  Index Scan using idx_group_group_child on group_group gg  (cost=0.43..425.65 rows=443 width=16) (actual time=0.020..0.187 rows=310 loops=5)
+                      Index Cond: (child_group_id = gm.usergroup)
+  ->  Append  (cost=1285782.22..3081714.73 rows=2 width=148) (actual time=667168.031..2327717.312 rows=2528 loops=1)
+        ->  Nested Loop  (cost=1285782.22..2950718.88 rows=1 width=148) (actual time=667168.029..2323861.569 rows=2526 loops=1)
+              ->  Nested Loop  (cost=1285781.80..2950718.40 rows=1 width=110) (actual time=667167.978..2323815.735 rows=2526 loops=1)
+                    ->  Nested Loop  (cost=1285781.36..2950717.10 rows=1 width=110) (actual time=667167.953..2323800.028 rows=2526 loops=1)
+                          ->  Nested Loop  (cost=1285780.94..2950716.58 rows=1 width=84) (actual time=667167.902..2323772.321 rows=2526 loops=1)
+                                Join Filter: ((f_dp_resolution_exdatecur.owner = f_dp_resltnbase_execresp.owner) AND (f_dp_resolution_exdatecur.owner_type = f_dp_resltnbase_execresp.owner_type) AND (f_dp_resolution_exdatecur.idx = executor.idx))
+                                Rows Removed by Join Filter: 4874836806
+                                ->  Nested Loop  (cost=298481.49..1266303.20 rows=154344 width=56) (actual time=2809.183..1591882.687 rows=1773959 loops=1)
+                                      ->  Nested Loop Semi Join  (cost=298481.01..1181106.86 rows=154396 width=72) (actual time=2809.124..1576578.191 rows=1773959 loops=1)
+                                            ->  Gather  (cost=298436.42..1110753.87 rows=154396 width=64) (actual time=2802.839..8867.384 rows=9630933 loops=1)
+                                                  Workers Planned: 2
+                                                  Workers Launched: 2
+                                                  ->  Parallel Hash Join  (cost=297436.42..1094314.27 rows=64332 width=64) (actual time=2788.260..17098.858 rows=3210311 loops=3)
+                                                        Hash Cond: ((executor.executorcurr = f_dp_resltnbase_execresp.executorresp) AND (executor.executorcurr_type = f_dp_resltnbase_execresp.executorresp_type) AND (executor.owner = f_dp_resltnbase_execresp.owner) AND (executor.owner_type = f_dp_resltnbase_execresp.owner_type))
+                                                        ->  Parallel Seq Scan on f_dp_resltnbase_execcurr executor  (cost=0.00..394282.43 rows=7315043 width=32) (actual time=0.136..5366.376 rows=5852456 loops=3)
+                                                        ->  Parallel Hash  (cost=217138.14..217138.14 rows=4014914 width=32) (actual time=2755.144..2755.145 rows=3211658 loops=3)
+                                                              Buckets: 16777216  Batches: 1  Memory Usage: 810240kB
+                                                              ->  Parallel Seq Scan on f_dp_resltnbase_execresp  (cost=0.00..217138.14 rows=4014914 width=32) (actual time=0.050..979.011 rows=3211658 loops=3)
+                                            ->  Hash Semi Join  (cost=44.59..76.53 rows=144 width=8) (actual time=0.162..0.162 rows=0 loops=9630933)
+                                                  Hash Cond: (r_1.group_id = cur_user_groups_1.parent_group_id)
+                                                  ->  Index Scan using idx_f_dp_rkkbase_read_object_group_hash on f_dp_rkkbase_read r_1  (cost=0.00..5.11 rows=287 width=16) (actual time=0.010..0.126 rows=356 loops=9630933)
+                                                        Index Cond: (object_id = f_dp_resltnbase_execresp.access_object_id)
+                                                        Rows Removed by Index Recheck: 0
+                                                  ->  Hash  (cost=27.44..27.44 rows=1372 width=8) (actual time=2.506..2.507 rows=1550 loops=1)
+                                                        Buckets: 2048  Batches: 1  Memory Usage: 77kB
+                                                        ->  CTE Scan on cur_user_groups cur_user_groups_1  (cost=0.00..27.44 rows=1372 width=8) (actual time=1.849..2.308 rows=1550 loops=1)
+                                      ->  Index Scan using idx_f_dp_rkkbase_id_id_type on f_dp_rkkbase ptf_1  (cost=0.48..0.55 rows=1 width=8) (actual time=0.007..0.007 rows=1 loops=1773959)
+                                            Index Cond: (id = f_dp_resltnbase_execresp.access_object_id)
+                                            Filter: ((security_stamp IS NULL) OR (hashed SubPlan 4))
+                                            SubPlan 4
+                                              ->  CTE Scan on person_stamp_values person_stamp_values_1  (cost=0.00..0.04 rows=2 width=8) (actual time=0.001..0.003 rows=3 loops=1)
+                                ->  Materialize  (cost=987299.45..1672065.87 rows=4 width=120) (actual time=0.003..0.113 rows=2748 loops=1773959)
+                                      ->  Hash Join  (cost=987299.45..1672065.85 rows=4 width=120) (actual time=4759.645..9495.715 rows=2748 loops=1)
+                                            Hash Cond: ((f_dp_resolution_exdatecur.owner = rt.id) AND (f_dp_resolution_exdatecur.owner_type = f_dp_resolution.id_type))
+"                                            Join Filter: ((f_dp_resolution.ctrldateexecution)::date <= COALESCE((f_dp_resolution.ctrldeadline)::date, CASE WHEN ((f_dp_resolution_exdatecur.execdatecurr IS NULL) OR ((f_dp_resolution_exdatecur.execdatecurr)::date = '0001-01-01'::date)) THEN NULL::date ELSE (f_dp_resolution_exdatecur.execdatecurr)::date END, ((f_dp_resolution.ctrldateexecution)::date - 1)))"
+                                            Rows Removed by Join Filter: 250
+                                            ->  Hash Join  (cost=955692.73..1508855.02 rows=17547162 width=28) (actual time=2225.459..8639.937 rows=4471487 loops=1)
+                                                  Hash Cond: (f_dp_resolution_exdatecur.access_object_id = ptf_2.id)
+                                                  ->  Seq Scan on f_dp_resolution_exdatecur  (cost=0.00..480139.12 rows=17553012 width=36) (actual time=0.014..2659.876 rows=17557383 loops=1)
+                                                  ->  Hash  (cost=952311.59..952311.59 rows=270491 width=16) (actual time=2223.330..2223.336 rows=113601 loops=1)
+                                                        Buckets: 524288  Batches: 1  Memory Usage: 9422kB
+                                                        ->  Nested Loop  (cost=586074.48..952311.59 rows=270491 width=16) (actual time=890.732..2177.976 rows=113601 loops=1)
+                                                              ->  HashAggregate  (cost=586074.00..588779.81 rows=270581 width=8) (actual time=890.556..943.136 rows=113601 loops=1)
+                                                                    Group Key: r_2.object_id
+                                                                    ->  Nested Loop  (cost=31.44..488889.40 rows=38873840 width=8) (actual time=0.560..733.089 rows=338555 loops=1)
+                                                                          ->  HashAggregate  (cost=30.87..32.87 rows=200 width=8) (actual time=0.515..1.149 rows=1550 loops=1)
+                                                                                Group Key: cur_user_groups_2.parent_group_id
+                                                                                ->  CTE Scan on cur_user_groups cur_user_groups_2  (cost=0.00..27.44 rows=1372 width=8) (actual time=0.003..0.110 rows=1550 loops=1)
+                                                                          ->  Index Scan using i_1458_read_2 on f_dp_rkkbase_read r_2  (cost=0.57..2392.81 rows=5147 width=16) (actual time=0.009..0.452 rows=218 loops=1550)
+                                                                                Index Cond: (group_id = cur_user_groups_2.parent_group_id)
+                                                              ->  Index Scan using idx_f_dp_rkkbase_id_id_type on f_dp_rkkbase ptf_2  (cost=0.48..1.38 rows=1 width=8) (actual time=0.011..0.011 rows=1 loops=113601)
+                                                                    Index Cond: (id = r_2.object_id)
+                                                                    Filter: ((security_stamp IS NULL) OR (hashed SubPlan 5))
+                                                                    SubPlan 5
+                                                                      ->  CTE Scan on person_stamp_values person_stamp_values_2  (cost=0.00..0.04 rows=2 width=8) (actual time=0.002..0.003 rows=3 loops=1)
+                                            ->  Hash  (cost=31606.65..31606.65 rows=5 width=92) (actual time=406.932..407.009 rows=1057 loops=1)
+                                                  Buckets: 2048 (originally 1024)  Batches: 1 (originally 1)  Memory Usage: 161kB
+                                                  ->  Nested Loop  (cost=1047.52..31606.65 rows=5 width=92) (actual time=70.070..406.016 rows=1057 loops=1)
+                                                        ->  Nested Loop  (cost=1047.38..31605.63 rows=5 width=104) (actual time=70.044..403.767 rows=1057 loops=1)
+                                                              ->  Nested Loop Semi Join  (cost=1047.23..31604.80 rows=5 width=104) (actual time=70.012..401.507 rows=1057 loops=1)
+                                                                    Join Filter: (f_dp_resolution.id = rt.id)
+                                                                    ->  Nested Loop  (cost=1046.32..31599.41 rows=5 width=96) (actual time=69.936..386.607 rows=1057 loops=1)
+                                                                          Join Filter: ((f_dp_resolution.id = resolution_base.id) AND (f_dp_resolution.id_type = resolution_base.id_type))
+                                                                          ->  Nested Loop Semi Join  (cost=1045.89..31563.95 rows=70 width=60) (actual time=69.909..383.368 rows=1057 loops=1)
+                                                                                ->  Gather Merge  (cost=1000.87..31446.34 rows=70 width=52) (actual time=12.723..128.199 rows=2663 loops=1)
+                                                                                      Workers Planned: 1
+                                                                                      Workers Launched: 1
+                                                                                      ->  Nested Loop  (cost=0.85..30438.45 rows=41 width=52) (actual time=5.342..131.525 rows=1332 loops=2)
+                                                                                            ->  Parallel Index Only Scan using idx_f_dp_resltnbase_cntrller on f_dp_resltnbase_cntrller resolution_controller  (cost=0.42..6084.91 rows=11779 width=12) (actual time=0.634..21.522 rows=10166 loops=2)
+                                                                                                  Index Cond: ((controller = 101272) AND (controller_type = 1142))
+                                                                                                  Heap Fetches: 20332
+                                                                                            ->  Index Scan using pk_1409 on f_dp_resolution  (cost=0.43..2.06 rows=1 width=40) (actual time=0.011..0.011 rows=0 loops=20332)
+                                                                                                  Index Cond: (id = resolution_controller.owner)
+"                                                                                                  Filter: ((executioncanceldate IS NULL) AND (ctrldateexecution IS NOT NULL) AND (isproject <> 1) AND (resolution_controller.owner_type = id_type) AND ((ctrldateexecution)::date >= '2024-04-01'::date) AND ((ctrldateexecution)::date <= '2024-06-30'::date))"
+                                                                                                  Rows Removed by Filter: 1
+                                                                                ->  Hash Semi Join  (cost=45.02..81.46 rows=144 width=8) (actual time=0.095..0.095 rows=0 loops=2663)
+                                                                                      Hash Cond: (r.group_id = cur_user_groups.parent_group_id)
+                                                                                      ->  Nested Loop  (cost=0.43..10.03 rows=287 width=16) (actual time=0.023..0.088 rows=61 loops=2663)
+                                                                                            ->  Index Scan using pk_1408 on f_dp_resltnbase rt_1  (cost=0.43..2.02 rows=1 width=16) (actual time=0.006..0.006 rows=1 loops=2663)
+                                                                                                  Index Cond: (id = f_dp_resolution.id)
+                                                                                            ->  Index Scan using idx_f_dp_rkkbase_read_object_group_hash on f_dp_rkkbase_read r  (cost=0.00..5.14 rows=287 width=16) (actual time=0.016..0.075 rows=61 loops=2663)
+                                                                                                  Index Cond: (object_id = rt_1.access_object_id)
+                                                                                                  Rows Removed by Index Recheck: 0
+                                                                                      ->  Hash  (cost=27.44..27.44 rows=1372 width=8) (actual time=0.239..0.240 rows=1550 loops=1)
+                                                                                            Buckets: 2048  Batches: 1  Memory Usage: 77kB
+                                                                                            ->  CTE Scan on cur_user_groups  (cost=0.00..27.44 rows=1372 width=8) (actual time=0.003..0.096 rows=1550 loops=1)
+                                                                          ->  Index Scan using pk_1408 on f_dp_resltnbase resolution_base  (cost=0.43..0.49 rows=1 width=36) (actual time=0.002..0.002 rows=1 loops=1057)
+                                                                                Index Cond: (id = rt_1.id)
+                                                                                Filter: (ctrliscontrolled = 1)
+                                                                    ->  Nested Loop  (cost=0.91..1.07 rows=1 width=8) (actual time=0.014..0.014 rows=1 loops=1057)
+                                                                          ->  Index Scan using pk_1408 on f_dp_resltnbase rt  (cost=0.43..0.49 rows=1 width=16) (actual time=0.001..0.001 rows=1 loops=1057)
+                                                                                Index Cond: (id = rt_1.id)
+                                                                          ->  Index Scan using idx_f_dp_rkkbase_id_id_type on f_dp_rkkbase ptf  (cost=0.48..0.58 rows=1 width=8) (actual time=0.011..0.011 rows=1 loops=1057)
+                                                                                Index Cond: (id = rt.access_object_id)
+                                                                                Filter: ((security_stamp IS NULL) OR (hashed SubPlan 3))
+                                                                                SubPlan 3
+                                                                                  ->  CTE Scan on person_stamp_values  (cost=0.00..0.04 rows=2 width=8) (actual time=0.055..0.061 rows=3 loops=1)
+                                                              ->  Index Scan using idx_ss_module_id_id_type on ss_module module  (cost=0.14..0.17 rows=1 width=24) (actual time=0.001..0.001 rows=1 loops=1057)
+                                                                    Index Cond: ((id = resolution_base.module) AND (id_type = resolution_base.module_type))
+                                                        ->  Index Scan using idx_ss_moduletype_id_id_type on ss_moduletype module_type  (cost=0.14..0.20 rows=1 width=12) (actual time=0.001..0.001 rows=1 loops=1057)
+                                                              Index Cond: ((id = module.type) AND (id_type = module.type_type))
+"                                                              Filter: ((alias)::text <> ALL ('{TempStorage,checkencoding}'::text[]))"
+                          ->  Index Scan using pk_1142 on so_beard author  (cost=0.42..0.51 rows=1 width=38) (actual time=0.008..0.008 rows=1 loops=2526)
+                                Index Cond: (id = resolution_base.author)
+                                Filter: (resolution_base.author_type = id_type)
+                    ->  Index Only Scan using idx_f_dp_rkkbase_id_id_type on f_dp_rkkbase rkk_base  (cost=0.43..1.30 rows=1 width=12) (actual time=0.003..0.003 rows=1 loops=2526)
+                          Index Cond: ((id = f_dp_resolution.hierroot) AND (id_type = f_dp_resolution.hierroot_type))
+                          Heap Fetches: 398
+              ->  Index Scan using pk_1142 on so_beard executor_beard  (cost=0.42..0.45 rows=1 width=87) (actual time=0.013..0.013 rows=1 loops=2526)
+                    Index Cond: (id = f_dp_resltnbase_execresp.executorresp)
+                    Filter: (f_dp_resltnbase_execresp.executorresp_type = id_type)
+        ->  Merge Join  (cost=9669.19..130995.82 rows=1 width=148) (actual time=3520.277..3854.285 rows=2 loops=1)
+              Merge Cond: (f_dp_tasksresolution_edc.owner = f_dp_tasksresolution_er.owner)
+"              Join Filter: ((f_dp_tasksresolution_er.owner_type = f_dp_tasksresolution_edc.owner_type) AND (executor_1.idx = f_dp_tasksresolution_edc.idx) AND ((f_dp_tasksresolution.ctrldateexecution)::date <= COALESCE((f_dp_tasksresolution.ctrldeadline)::date, CASE WHEN ((f_dp_tasksresolution_edc.execdatecurr IS NULL) OR ((f_dp_tasksresolution_edc.execdatecurr)::date = '0001-01-01'::date)) THEN NULL::date ELSE (f_dp_tasksresolution_edc.execdatecurr)::date END, ((f_dp_tasksresolution.ctrldateexecution)::date - 1))))"
+              Rows Removed by Join Filter: 4
+              ->  Nested Loop  (cost=45.92..118322.07 rows=61287 width=28) (actual time=58.522..801.630 rows=181 loops=1)
+                    Join Filter: (f_dp_tasksresolution_edc.access_object_id = ptf_4.id)
+                    ->  Nested Loop Semi Join  (cost=45.45..33104.95 rows=61307 width=44) (actual time=58.490..800.553 rows=181 loops=1)
+                          ->  Index Scan using i_1768_0 on f_dp_tasksresolution_edc  (cost=0.29..2153.89 rows=61307 width=36) (actual time=0.041..42.872 rows=52663 loops=1)
+                          ->  Hash Semi Join  (cost=45.16..80.14 rows=144 width=8) (actual time=0.014..0.014 rows=0 loops=52663)
+                                Hash Cond: (r_5.group_id = cur_user_groups_5.parent_group_id)
+                                ->  Index Scan using object_id_index on f_dp_rkkbase_read r_5  (cost=0.57..8.71 rows=287 width=16) (actual time=0.004..0.010 rows=35 loops=52663)
+                                      Index Cond: (object_id = f_dp_tasksresolution_edc.access_object_id)
+                                ->  Hash  (cost=27.44..27.44 rows=1372 width=8) (actual time=0.287..0.289 rows=1550 loops=1)
+                                      Buckets: 2048  Batches: 1  Memory Usage: 77kB
+                                      ->  CTE Scan on cur_user_groups cur_user_groups_5  (cost=0.00..27.44 rows=1372 width=8) (actual time=0.001..0.101 rows=1550 loops=1)
+                    ->  Index Scan using idx_f_dp_rkkbase_id_id_type on f_dp_rkkbase ptf_4  (cost=0.48..1.38 rows=1 width=8) (actual time=0.005..0.005 rows=1 loops=181)
+                          Index Cond: (id = r_5.object_id)
+                          Filter: ((security_stamp IS NULL) OR (hashed SubPlan 8))
+                          SubPlan 8
+                            ->  CTE Scan on person_stamp_values person_stamp_values_5  (cost=0.00..0.04 rows=2 width=8) (never executed)
+              ->  Materialize  (cost=9623.26..12521.96 rows=1 width=225) (actual time=2736.458..3052.550 rows=4 loops=1)
+                    ->  Nested Loop  (cost=9623.26..12521.95 rows=1 width=225) (actual time=2736.447..3052.535 rows=2 loops=1)
+                          Join Filter: ((f_dp_tasksresolution_er.executorresp = executor_beard_1.id) AND (f_dp_tasksresolution_er.executorresp_type = executor_beard_1.id_type))
+                          ->  Nested Loop  (cost=9622.84..12520.94 rows=1 width=162) (actual time=2736.414..3052.239 rows=2 loops=1)
+                                Join Filter: ((root_type.id = f_dp_tasksresolution_er.owner) AND (f_dp_tasksresolution.id_type = f_dp_tasksresolution_er.owner_type))
+                                Rows Removed by Join Filter: 201
+                                ->  Nested Loop  (cost=9589.34..11879.70 rows=638 width=56) (actual time=81.905..2965.575 rows=203 loops=1)
+                                      Join Filter: (f_dp_tasksresolution_er.access_object_id = ptf_3.id)
+                                      ->  Nested Loop Semi Join  (cost=9588.86..10991.48 rows=639 width=72) (actual time=81.870..2964.221 rows=203 loops=1)
+                                            ->  Gather Merge  (cost=9543.70..10586.24 rows=639 width=64) (actual time=76.222..133.890 rows=41244 loops=1)
+                                                  Workers Planned: 1
+                                                  Workers Launched: 1
+                                                  ->  Merge Join  (cost=8543.69..9514.34 rows=376 width=64) (actual time=68.731..101.104 rows=20622 loops=2)
+                                                        Merge Cond: ((executor_1.owner = f_dp_tasksresolution_er.owner) AND (executor_1.owner_type = f_dp_tasksresolution_er.owner_type) AND (executor_1.executorcurr = f_dp_tasksresolution_er.executorresp) AND (executor_1.executorcurr_type = f_dp_tasksresolution_er.executorresp_type))
+                                                        ->  Sort  (cost=4211.19..4301.35 rows=36062 width=32) (actual time=38.547..43.985 rows=30653 loops=2)
+"                                                              Sort Key: executor_1.owner, executor_1.owner_type, executor_1.executorcurr, executor_1.executorcurr_type"
+                                                              Sort Method: quicksort  Memory: 4774kB
+                                                              Worker 0:  Sort Method: quicksort  Memory: 2320kB
+                                                              ->  Parallel Seq Scan on f_dp_tasksresolution_ec executor_1  (cost=0.00..1481.62 rows=36062 width=32) (actual time=0.045..24.670 rows=30653 loops=2)
+                                                        ->  Sort  (cost=4332.50..4435.73 rows=41290 width=32) (actual time=29.916..36.385 rows=41274 loops=2)
+"                                                              Sort Key: f_dp_tasksresolution_er.owner, f_dp_tasksresolution_er.owner_type, f_dp_tasksresolution_er.executorresp, f_dp_tasksresolution_er.executorresp_type"
+                                                              Sort Method: quicksort  Memory: 4762kB
+                                                              Worker 0:  Sort Method: quicksort  Memory: 4762kB
+                                                              ->  Seq Scan on f_dp_tasksresolution_er  (cost=0.00..1166.90 rows=41290 width=32) (actual time=0.061..12.837 rows=41290 loops=2)
+                                            ->  Hash Semi Join  (cost=45.16..80.53 rows=144 width=8) (actual time=0.068..0.068 rows=0 loops=41244)
+                                                  Hash Cond: (r_4.group_id = cur_user_groups_4.parent_group_id)
+                                                  ->  Index Scan using object_id_index on f_dp_rkkbase_read r_4  (cost=0.57..9.10 rows=287 width=16) (actual time=0.056..0.064 rows=31 loops=41244)
+                                                        Index Cond: (object_id = f_dp_tasksresolution_er.access_object_id)
+                                                  ->  Hash  (cost=27.44..27.44 rows=1372 width=8) (actual time=0.218..0.219 rows=1550 loops=1)
+                                                        Buckets: 2048  Batches: 1  Memory Usage: 77kB
+                                                        ->  CTE Scan on cur_user_groups cur_user_groups_4  (cost=0.00..27.44 rows=1372 width=8) (actual time=0.001..0.107 rows=1550 loops=1)
+                                      ->  Index Scan using idx_f_dp_rkkbase_id_id_type on f_dp_rkkbase ptf_3  (cost=0.48..1.38 rows=1 width=8) (actual time=0.005..0.005 rows=1 loops=203)
+                                            Index Cond: (id = r_4.object_id)
+                                            Filter: ((security_stamp IS NULL) OR (hashed SubPlan 7))
+                                            SubPlan 7
+                                              ->  CTE Scan on person_stamp_values person_stamp_values_4  (cost=0.00..0.04 rows=2 width=8) (never executed)
+                                ->  Materialize  (cost=33.50..630.08 rows=1 width=106) (actual time=0.128..0.426 rows=1 loops=203)
+                                      ->  Nested Loop  (cost=33.50..630.07 rows=1 width=106) (actual time=25.897..86.460 rows=1 loops=1)
+                                            ->  Nested Loop  (cost=33.08..627.63 rows=1 width=80) (actual time=25.843..86.403 rows=1 loops=1)
+                                                  ->  Nested Loop  (cost=32.93..627.42 rows=1 width=92) (actual time=25.820..86.378 rows=1 loops=1)
+                                                        ->  Nested Loop  (cost=32.78..627.26 rows=1 width=92) (actual time=25.799..86.356 rows=1 loops=1)
+                                                              Join Filter: (f_dp_tasksresolution.id_type = rkk_base_1.id_type)
+                                                              ->  Nested Loop Semi Join  (cost=32.35..626.72 rows=1 width=68) (actual time=25.764..86.318 rows=1 loops=1)
+                                                                    ->  Nested Loop  (cost=1.05..584.89 rows=1 width=60) (actual time=6.889..9.821 rows=19 loops=1)
+                                                                          ->  Nested Loop  (cost=0.57..582.39 rows=1 width=52) (actual time=6.859..9.423 rows=19 loops=1)
+                                                                                ->  Index Scan using i_1464_0 on f_dp_rkkbase_controller resolution_controller_1  (cost=0.29..177.72 rows=299 width=12) (actual time=0.477..3.687 rows=299 loops=1)
+                                                                                      Index Cond: (controller = 101272)
+                                                                                      Filter: (controller_type = 1142)
+                                                                                ->  Index Scan using pk_1757 on f_dp_tasksresolution  (cost=0.29..1.34 rows=1 width=40) (actual time=0.019..0.019 rows=0 loops=299)
+                                                                                      Index Cond: (id = resolution_controller_1.owner)
+"                                                                                      Filter: ((executioncanceldate IS NULL) AND (ctrldateexecution IS NOT NULL) AND (isproject <> 1) AND (ctrliscontrolled = 1) AND (resolution_controller_1.owner_type = id_type) AND ((ctrldateexecution)::date >= '2024-04-01'::date) AND ((ctrldateexecution)::date <= '2024-06-30'::date))"
+                                                                                      Rows Removed by Filter: 1
+                                                                          ->  Index Scan using idx_f_dp_rkkbase_id_id_type on f_dp_rkkbase root_type  (cost=0.48..2.50 rows=1 width=8) (actual time=0.018..0.018 rows=1 loops=19)
+                                                                                Index Cond: (id = f_dp_tasksresolution.id)
+                                                                                Filter: ((security_stamp IS NULL) OR (hashed SubPlan 6))
+                                                                                SubPlan 6
+                                                                                  ->  CTE Scan on person_stamp_values person_stamp_values_3  (cost=0.00..0.04 rows=2 width=8) (never executed)
+                                                                    ->  Nested Loop  (cost=31.30..41.82 rows=1 width=8) (actual time=4.024..4.025 rows=0 loops=19)
+                                                                          Join Filter: (r_3.group_id = cur_user_groups_3.parent_group_id)
+                                                                          Rows Removed by Join Filter: 28962
+                                                                          ->  Nested Loop  (cost=0.43..6.45 rows=1 width=16) (actual time=0.015..0.062 rows=19 loops=19)
+                                                                                ->  Index Scan using idx_f_dp_rkkbase_id_id_type on f_dp_rkkbase rt_2  (cost=0.43..0.53 rows=1 width=24) (actual time=0.002..0.002 rows=1 loops=19)
+                                                                                      Index Cond: (id = root_type.id)
+                                                                                ->  Index Scan using idx_f_dp_rkkbase_read_object_group_hash on f_dp_rkkbase_read r_3  (cost=0.00..5.86 rows=6 width=24) (actual time=0.011..0.054 rows=19 loops=19)
+                                                                                      Index Cond: (object_id = rt_2.access_object_id)
+                                                                                      Filter: ((module IS NULL) OR (rt_2.module = module))
+                                                                          ->  HashAggregate  (cost=30.87..32.87 rows=200 width=8) (actual time=0.001..0.130 rows=1546 loops=356)
+                                                                                Group Key: cur_user_groups_3.parent_group_id
+                                                                                ->  CTE Scan on cur_user_groups cur_user_groups_3  (cost=0.00..27.44 rows=1372 width=8) (actual time=0.001..0.105 rows=1550 loops=1)
+                                                              ->  Index Scan using idx_f_dp_rkkbase_id_id_type on f_dp_rkkbase rkk_base_1  (cost=0.43..0.53 rows=1 width=24) (actual time=0.017..0.017 rows=1 loops=1)
+                                                                    Index Cond: (id = root_type.id)
+                                                        ->  Index Scan using idx_ss_module_id_id_type on ss_module module_1  (cost=0.14..0.17 rows=1 width=24) (actual time=0.013..0.014 rows=1 loops=1)
+                                                              Index Cond: ((id = rkk_base_1.module) AND (id_type = rkk_base_1.module_type))
+                                                  ->  Index Scan using idx_ss_moduletype_id_id_type on ss_moduletype module_type_1  (cost=0.14..0.20 rows=1 width=12) (actual time=0.019..0.020 rows=1 loops=1)
+                                                        Index Cond: ((id = module_1.type) AND (id_type = module_1.type_type))
+"                                                        Filter: ((alias)::text <> ALL ('{TempStorage,checkencoding}'::text[]))"
+                                            ->  Index Scan using idx_so_beard_id_id_type on so_beard author_1  (cost=0.42..2.44 rows=1 width=38) (actual time=0.049..0.049 rows=1 loops=1)
+                                                  Index Cond: ((id = f_dp_tasksresolution.author) AND (id_type = f_dp_tasksresolution.author_type))
+                          ->  Index Scan using pk_1142 on so_beard executor_beard_1  (cost=0.42..1.00 rows=1 width=87) (actual time=0.138..0.138 rows=1 loops=2)
+                                Index Cond: (id = executor_1.executorcurr)
+                                Filter: (executor_1.executorcurr_type = id_type)
+Planning Time: 67.309 ms
+Execution Time: 2327745.538 ms
