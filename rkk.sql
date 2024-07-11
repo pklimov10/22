@@ -1,197 +1,196 @@
-WITH rkk AS (
-  SELECT 
-    COUNT(rkk."id") AS "resolutions", 
-    creators."created_id" AS "author", 
-    creators."created_id_type" AS "author_type", 
-    rkkb."complect" AS "complect" 
-  FROM 
-    (
-      SELECT 
-        f_dp_rkk.* 
-      FROM 
-        "f_dp_rkk" f_dp_rkk 
-      WHERE 
-        EXISTS (
-          SELECT 
-            1 
-          FROM 
-            "f_dp_rkkbase" root_type 
-          WHERE 
-            root_type."id" = f_dp_rkk."id" 
-            AND (
-              root_type."security_stamp" IS NULL 
-              OR root_type."security_stamp" IN (
-                SELECT 
-                  "stamp" 
-                FROM 
-                  "person_stamp_values"
-              )
-            )
-        ) 
-        AND EXISTS (
-          SELECT 
-            1 
-          FROM 
-            "f_dp_rkkbase_read" r 
-            INNER JOIN "f_dp_rkkbase" rt ON r."object_id" = rt."access_object_id" 
-          WHERE 
-            r."group_id" IN (
-              SELECT 
-                "parent_group_id" 
-              FROM 
-                "cur_user_groups"
-            ) 
-            AND rt."id" = f_dp_rkk."id" 
-            AND (
-              r."module" IS NULL 
-              OR rt."module" = r."module"
-            ) 
-          LIMIT 
-            1
-        )
-    ) rkk 
-    JOIN "f_dp_rkkbase" rkkb ON rkk."id" = rkkb."id" 
-    JOIN (
-      SELECT 
-        brdauth."orig_shortname" AS "craetorshortname", 
-        fdr2."created_by", 
-        fdr2."created_by_type", 
-        fdr2."author" AS "autor_res", 
-        fdr2."author_type" AS "autor_res_type", 
-        fdr."hierroot", 
-        fdr."hierroot_type", 
-        brdauth."id" AS "created_id", 
-        brdauth."id_type" AS "created_id_type" 
-      FROM 
-        (
-          SELECT 
-            f_dp_resolution.* 
-          FROM 
-            "f_dp_resolution" f_dp_resolution 
-          WHERE 
-            EXISTS (
-              SELECT 
-                1 
-              FROM 
-                "f_dp_rkkbase" ptf 
-                INNER JOIN "f_dp_resltnbase" rt ON ptf."id" = rt."access_object_id" 
-              WHERE 
-                rt."id" = f_dp_resolution."id" 
-                AND ptf."id" = rt."access_object_id" 
-                AND (
-                  ptf."security_stamp" IS NULL 
-                  OR ptf."security_stamp" IN (
-                    SELECT 
-                      "stamp" 
-                    FROM 
-                      "person_stamp_values"
-                  )
-                )
-            ) 
-            AND EXISTS (
-              SELECT 
-                1 
-              FROM 
-                "f_dp_rkkbase_read" r 
-                INNER JOIN "f_dp_resltnbase" rt ON r."object_id" = rt."access_object_id" 
-              WHERE 
-                r."group_id" IN (
-                  SELECT 
-                    "parent_group_id" 
-                  FROM 
-                    "cur_user_groups"
-                ) 
-                AND rt."id" = f_dp_resolution."id" 
-              LIMIT 
-                1
-            )
-        ) fdr 
-        JOIN "f_dp_resltnbase" fdr2 ON fdr2."id" = fdr."id" 
-        LEFT JOIN "person" ON fdr2."created_by" = person."id" 
-        LEFT JOIN "so_personsys" sp ON person."id" = sp."platformperson" 
-        LEFT JOIN "so_appointment" so_app ON sp."id" = so_app."person" 
-        LEFT JOIN "so_beard" brdauth ON brdauth."id" = so_app."beard" 
-        JOIN "clerk" ON clerk."clerk_id" = brdauth."id" 
-      WHERE 
-        fdr2."isdeleted" = 0 
-      
-      UNION ALL
-      
-      SELECT 
-        visaauthor."orig_shortname" AS "craetorshortname", 
-        fdr2."created_by", 
-        fdr2."created_by_type", 
-        fdr2."author" AS "autor_res", 
-        fdr2."author_type" AS "autor_res_type", 
-        fdr."hierroot", 
-        fdr."hierroot_type", 
-        visaauthor."id" AS "created_id", 
-        visaauthor."id_type" AS "created_id_type" 
-      FROM 
-        (
-          SELECT 
-            f_dp_resolution.* 
-          FROM 
-            "f_dp_resolution" f_dp_resolution 
-          WHERE 
-            EXISTS (
-              SELECT 
-                1 
-              FROM 
-                "f_dp_rkkbase" ptf 
-                INNER JOIN "f_dp_resltnbase" rt ON ptf."id" = rt."access_object_id" 
-              WHERE 
-                rt."id" = f_dp_resolution."id" 
-                AND ptf."id" = rt."access_object_id" 
-                AND (
-                  ptf."security_stamp" IS NULL 
-                  OR ptf."security_stamp" IN (
-                    SELECT 
-                      "stamp" 
-                    FROM 
-                      "person_stamp_values"
-                  )
-                )
-            ) 
-            AND EXISTS (
-              SELECT 
-                1 
-              FROM 
-                "f_dp_rkkbase_read" r 
-                INNER JOIN "f_dp_resltnbase" rt ON r."object_id" = rt."access_object_id" 
-              WHERE 
-                r."group_id" IN (
-                  SELECT 
-                    "parent_group_id" 
-                  FROM 
-                    "cur_user_groups"
-                ) 
-                AND rt."id" = f_dp_resolution."id" 
-              LIMIT 
-                1
-            )
-        ) fdr 
-        JOIN "f_dp_resltnbase" fdr2 ON fdr2."id" = fdr."id" 
-        LEFT JOIN "person" ON fdr2."created_by" = person."id" 
-        LEFT JOIN "so_personsys" sp ON person."id" = sp."platformperson" 
-        LEFT JOIN "so_appointment" so_app ON sp."id" = so_app."person" 
-        LEFT JOIN "so_beard" visaauthor ON visaauthor."id" = so_app."beard" 
-        JOIN "clerk" ON clerk."clerk_id" = visaauthor."id" 
-      WHERE 
-        fdr2."isdeleted" = 0 
-    ) creators ON creators."hierroot" = rkkb."id" 
-  WHERE 
-    (
-      (
-        '-4'  = '-4' 
-        AND rkkb."initbranch" IS NOT NULL
-      ) 
-      OR rkkb."initbranch" IN (11, -4)
-    ) 
-    AND rkkb."isdeleted" = 0 
-    AND rkk."regnumcnt" IS NOT NULL 
-  GROUP BY 
-    rkkb."complect", 
-    creators."created_id", 
-    creators."created_id_type"
-)
+rkkbase.id = rkk.id
+
+
+EXPLAIN ANALYZE
+SELECT
+	*
+FROM
+	(
+		SELECT
+			id
+		,	id_type
+		,	created_date
+		,	updated_date
+		,	module
+		,	module_type
+		,	self_1
+		,	self_2
+		,	self_3
+		,	CASE
+				WHEN isdeleted = 1 THEN 'Удален'
+				WHEN state = 'Project' OR state = '' OR state IS NULL THEN 'Проект'
+				WHEN state = 'Transmitted' THEN 'Передано'
+				WHEN state = 'Received' THEN 'Получено'
+				WHEN state = 'ReceivedPartially' THEN 'Получено частично'
+				ELSE ''
+			END state
+		,	regnumberdtr
+		,	rnumber number
+		,	CASE
+				WHEN state = 'Project' THEN date(created_date)
+				WHEN sendingdate IS NULL AND state <> 'Project' AND NOT regdate IS NULL THEN date(regdate)
+				WHEN NOT sendingdate IS NULL THEN date(sendingdate)
+				ELSE NULL
+			END sendingdate
+		,	senderdep
+		,	sender
+		,	CASE WHEN NOT receivingdate IS NULL THEN date(receivingdate) ELSE NULL END receivingdate
+		,	receiverdep
+		,	receiver
+		FROM
+			(
+				SELECT
+					rkkbase.id
+				,	rkkbase.id_type
+				,	rkkbase.created_date
+				,	rkkbase.updated_date
+				,	rkkbase.module module
+				,	rkkbase.module_type module_type
+				,	'<id>' self_1
+				,	':' self_2
+				,	'</>' self_3
+				,	rkkbase.isdeleted isdeleted
+				,	(
+						SELECT
+							tfs.value v
+						FROM
+							tn_field_string tfs
+						JOIN
+							tn_field
+								ON tn_field.id = tfs.id
+						WHERE
+							tn_field.owner = rkkbase.id AND
+							tn_field.owner_type = rkkbase.id_type AND
+							tn_field.cmjfield = 'state'
+					) state
+				,	'<regNumberPrefix>' || coalesce(rkk.regnumprist, '') || '</>' || '<regNumberCounter#Number>' || coalesce(rkk.regnumcnt::varchar, '') || '</>' || '<regNumberSuffix>' || coalesce(rkk.regnumfin, '') || '</>' regnumberdtr
+				,	(
+						SELECT
+							coalesce(
+								string_agg('<id>' || link.docreplid || ':' || link.docunid || '</>', ';')
+							,	'<id></>'
+							)
+						FROM
+							f_dp_rkkworegandctrl_ulnk link
+						WHERE
+							link.owner = rkk.id
+					) linkeddoc
+				,	rkk.regnumcnt rnumber
+				,	rkk.regdate regdate
+				,	(
+						SELECT
+							tfdt.value v
+						FROM
+							tn_field_datetime tfdt
+						JOIN
+							tn_field
+								ON tn_field.id = tfdt.id
+						WHERE
+							tn_field.owner = rkkbase.id AND
+							tn_field.owner_type = rkkbase.id_type AND
+							tn_field.cmjfield = 'sendingDateTime'
+					) sendingdate
+				,	coalesce(
+						(
+							SELECT
+								CASE
+									WHEN regplace.orig_shortname IS NULL THEN 'Не указано'
+									ELSE regplace.orig_shortname
+								END
+							FROM
+								so_beard regplace
+							WHERE
+								regplace.id = rkkbase.regcode
+						)
+					,	CASE WHEN rkkbase.regcode IS NULL THEN 'Не указано' END
+					) regplace
+				,	(
+						SELECT
+							tfs.value v
+						FROM
+							tn_field_string tfs
+						JOIN
+							tn_field
+								ON tn_field.id = tfs.id
+						WHERE
+							tn_field.owner = rkkbase.id AND
+							tn_field.owner_type = rkkbase.id_type AND
+							tn_field.cmjfield = 'sender'
+					) sender
+				,	(
+						SELECT
+							tfs.value v
+						FROM
+							tn_field_string tfs
+						JOIN
+							tn_field
+								ON tn_field.id = tfs.id
+						WHERE
+							tn_field.owner = rkkbase.id AND
+							tn_field.owner_type = rkkbase.id_type AND
+							tn_field.cmjfield = 'senderDepHierarchy'
+					) senderdep
+				,	(
+						SELECT
+							tfdt.value v
+						FROM
+							tn_field_datetime tfdt
+						JOIN
+							tn_field
+								ON tn_field.id = tfdt.id
+						WHERE
+							tn_field.owner = rkkbase.id AND
+							tn_field.owner_type = rkkbase.id_type AND
+							tn_field.cmjfield = 'receivingDateTime'
+					) receivingdate
+				,	(
+						SELECT
+							tfs.value v
+						FROM
+							tn_field_string tfs
+						JOIN
+							tn_field
+								ON tn_field.id = tfs.id
+						WHERE
+							tn_field.owner = rkkbase.id AND
+							tn_field.owner_type = rkkbase.id_type AND
+							tn_field.cmjfield = 'receiverDepHierarchy'
+					) receiverdep
+				,	(
+						SELECT
+							tfs.value v
+						FROM
+							tn_field_string tfs
+						JOIN
+							tn_field
+								ON tn_field.id = tfs.id
+						WHERE
+							tn_field.owner = rkkbase.id AND
+							tn_field.owner_type = rkkbase.id_type AND
+							tn_field.cmjfield = 'receiver'
+					) receiver
+				FROM
+					f_dp_rkkbase rkkbase
+				JOIN
+					f_dp_intrkk internalrkk
+						ON rkkbase.id = internalrkk.id
+				JOIN
+					f_dp_rkk rkk
+						ON rkk.id = rkkbase.id
+				WHERE
+					rkkbase.isdeleted <> 1
+			) s
+	) r
+WHERE
+	1 = 1 AND
+	(
+		state = 'Передано' OR
+		state = 'Получено' OR
+		state = 'Получено частично'
+	) AND
+	module = 68 AND
+	module_type = 1015
+ORDER BY
+	number DESC
+,	id DESC
+LIMIT 101;
