@@ -1,78 +1,93 @@
-WITH reqid AS 
-  (SELECT item AS id, 
-          item_type AS id_type 
-   FROM qr_id_list 
-   WHERE request = 1583013 
-     AND request_type = 2108 
-   LIMIT 1),
-tn_field_values AS (
-  SELECT tf.owner,
-         tf.cmjfield,
-         tfs.value AS string_value,
-         tfd.value AS datetime_value,
-         tfdc.value AS decimal_value
-  FROM tn_field tf
-  LEFT JOIN tn_field_string tfs ON tfs.id = tf.id
-  LEFT JOIN tn_field_datetime tfd ON tfd.id = tf.id
-  LEFT JOIN tn_field_decimal tfdc ON tfdc.id = tf.id
-  WHERE tf.owner = (SELECT id FROM reqid)
-)
-SELECT rkk.id, 
-       rkk.id_type, 
-       concat(module.replica, ':', nunid2punid_map.nunid) AS unid, 
-       rkk.id_type AS rkkidtype, 
-       module.replica, 
-       concat(COALESCE(rkk.regnumprist, ''), COALESCE(CAST(rkk.regnumcnt AS varchar), ''), COALESCE(rkk.regnumfin, '')) AS regnumber, 
-       CASE 
-           WHEN regPlace.orig_type = 0 THEN regPlace.orig_shortname 
-           WHEN regPlace.orig_type = 1 THEN concat(regPlace.orig_shortname, ', ', regPlace.orig_postname)
-           WHEN regPlace.orig_type = 2 THEN 
-                  (SELECT SO_StructureUnit.fullname 
-                   FROM so_structureunit AS SO_StructureUnit
-                   WHERE SO_StructureUnit.beard = regPlace.id) 
-       END AS registrationplace, 
-       CASE 
-           WHEN tf_state.string_value = 'Project' THEN to_char(timezone('0', rkkbase.created_date), 'HH24:MI') 
-           ELSE to_char(timezone('0', tf_sending.datetime_value), 'HH24:MI') 
-       END AS sendingtime, 
-       CASE 
-           WHEN tf_state.string_value = 'Project' THEN to_char(rkkbase.created_date, 'dd.MM.yyyy') 
-           ELSE to_char(tf_sending.datetime_value, 'dd.MM.yyyy') 
-       END AS sendingdate, 
-       to_char(timezone('0', tf_receiving.datetime_value), 'HH24:MI') AS receivingtime, 
-       to_char(tf_receiving.datetime_value, 'dd.MM.yyyy') AS receivingdate, 
-       tf_sender.string_value AS sender, 
-       tf_receiver.string_value AS receiver, 
-       (SELECT SO_StructureUnit.fullname 
-        FROM so_beard AS SO_Beard
-        JOIN so_structureunit AS SO_StructureUnit ON SO_StructureUnit.beard = SO_Beard.id 
-        WHERE SO_Beard.cmjunid = concat(split_part(tf_receiverdep.string_value, '%', 4), split_part(tf_receiverdep.string_value, '%', 5))) AS receiverdep, 
-       tf_senderdep.string_value AS senderdephierarchy, 
-       tf_receiverdep_hierarchy.string_value AS receiverdephierarchy, 
-       tf_totalsent.decimal_value AS totalsent, 
-       tf_totalnotreceived.decimal_value AS totalnotreceived, 
-       tf_totalreceived.decimal_value AS totalreceived, 
-       tf_totalreceivedbyfact.decimal_value AS totalreceivedbyfact 
-FROM f_dp_rkkbase AS rkkBase 
-NATURAL JOIN f_dp_rkk AS rkk 
-JOIN f_dp_intrkk AS inrRkk ON rkkBase.id = inrRkk.id 
-LEFT JOIN f_dp_rkkbase_theme AS theme ON theme.owner = inrRkk.id 
-LEFT JOIN so_beard AS regPlace ON regPlace.id = rkkBase.regcode 
-LEFT JOIN so_beard AS signer ON signer.id = inrRkk.signsigner 
-LEFT JOIN ss_module AS module ON module.id = rkkbase.module 
-LEFT JOIN ss_moduletype AS moduletype ON moduletype.id = module.type 
-JOIN nunid2punid_map ON nunid2punid_map.punid = CAST(((rkk.id_type * power(10, 12)) + rkk.id) AS varchar(16))
-LEFT JOIN tn_field_values tf_state ON tf_state.cmjfield = 'state'
-LEFT JOIN tn_field_values tf_sending ON tf_sending.cmjfield = 'sendingDateTime'
-LEFT JOIN tn_field_values tf_receiving ON tf_receiving.cmjfield = 'receivingDateTime'
-LEFT JOIN tn_field_values tf_sender ON tf_sender.cmjfield = 'sender'
-LEFT JOIN tn_field_values tf_receiver ON tf_receiver.cmjfield = 'receiver'
-LEFT JOIN tn_field_values tf_receiverdep ON tf_receiverdep.cmjfield = 'receiverDepBeard'
-LEFT JOIN tn_field_values tf_senderdep ON tf_senderdep.cmjfield = 'senderDepHierarchy'
-LEFT JOIN tn_field_values tf_receiverdep_hierarchy ON tf_receiverdep_hierarchy.cmjfield = 'receiverDepHierarchy'
-LEFT JOIN tn_field_values tf_totalsent ON tf_totalsent.cmjfield = 'totalSent'
-LEFT JOIN tn_field_values tf_totalnotreceived ON tf_totalnotreceived.cmjfield = 'totalNotReceived'
-LEFT JOIN tn_field_values tf_totalreceived ON tf_totalreceived.cmjfield = 'totalReceived'
-LEFT JOIN tn_field_values tf_totalreceivedbyfact ON tf_totalreceivedbyfact.cmjfield = 'totalReceivedByFact'
-WHERE moduletype.alias = 'DTR' 
-  AND rkk.id = (SELECT id FROM reqid)
+SELECT
+    -- Индекс файла
+    STRING_AGG(
+        CASE
+            WHEN fru.statusGeneral = 'ACTIVE' OR (fru.statusGeneral = 'PROJECT' AND fr.statusGeneral = 'PROJECT')
+                THEN fr.indexfile
+            ELSE COALESCE(
+                    NULLIF(CONCAT(
+                                   files.indexPrefixNew,
+                                   COALESCE(setting.prefixSplitter_file, fr.separatorPref),
+                                   files.indexNumNew,
+                                   COALESCE(setting.suffixSplitter_file, fr.separatorSuff)
+                                       || NULLIF(files.indexSuffixNew, '')), ''),
+                    fr.indexfile)
+        END, ', ') AS indexfile,
+    -- Титул
+    STRING_AGG(
+        CASE
+            WHEN fru.statusGeneral = 'ACTIVE' OR (fru.statusGeneral = 'PROJECT' AND fr.statusGeneral = 'PROJECT')
+                THEN fr.titleFile
+            WHEN fru.statusGeneral = 'PROJECT' AND fr.statusGeneral = 'FORMED'
+                THEN COALESCE(NULLIF(files.titleNew, ''), fr.titleFile)
+            ELSE files.titleNew
+        END, ', ') AS titleFile,
+    -- Период хранения
+    STRING_AGG(
+        CONCAT_WS(', ',
+                  CASE
+                      WHEN fru.statusGeneral = 'ACTIVE' OR (fru.statusGeneral = 'PROJECT' AND fr.statusGeneral = 'PROJECT')
+                          THEN NULLIF(COALESCE(spd.period, fr.storagePeriod), '')
+                      WHEN fru.statusGeneral = 'PROJECT' AND fr.statusGeneral = 'FORMED'
+                          THEN NULLIF(COALESCE(spd.period, NULLIF(files.storagePeriodNew, ''), fr.storagePeriod), '')
+                      ELSE NULLIF(COALESCE(spd.period, files.storagePeriodNew), '')
+                      END,
+                  CASE WHEN fre.ek = 1 THEN 'ЭК' END), ', ') AS storagePeriod,
+    -- Описание
+    STRING_AGG(
+        CASE
+            WHEN fru.statusGeneral = 'ACTIVE' OR (fru.statusGeneral = 'PROJECT' AND fr.statusGeneral = 'PROJECT')
+                THEN COALESCE(spd.articleNum, fr.spDescription, '')
+            WHEN fru.statusGeneral = 'PROJECT' AND fr.statusGeneral = 'FORMED'
+                THEN COALESCE(spd.articleNum, NULLIF(files.spDescriptionNew, ''), fr.spDescription, '')
+            ELSE COALESCE(spd.articleNum, files.spDescriptionNew, '')
+        END, ', ') AS spDescription,
+    -- Электронное или бумажное
+    STRING_AGG(
+        CASE
+            WHEN fre.inpo = 1 THEN 'Ведется в эл. виде'
+            ELSE ' '
+        END
+        || CASE
+               WHEN fre.inpo = 1 AND fre.electronic = 1 THEN ' / '
+               ELSE ''
+        END
+        || CASE
+               WHEN fre.electronic = 1 THEN 'Сопровождается в эл. виде'
+               ELSE ' '
+        END
+        || CASE
+               WHEN fre.electronic = 1 AND fre.outofsystem = 1 THEN ' / '
+               ELSE ''
+        END
+        || CASE
+               WHEN fre.outofsystem = 1 THEN 'Формируется вне Системы'
+               ELSE ' '
+        END
+        || CASE
+               WHEN fre.outofsystem = 1 AND sb.orig_shortname IS NOT NULL THEN ' / '
+               ELSE ''
+        END, ', ') AS comment,
+    -- Все имена участников
+    STRING_AGG(sb.orig_shortname, ', ') AS participants
+FROM FR_UnitRegister fru
+         JOIN FR_UR_File_Register files ON files.owner = fru.id
+         JOIN FR_File fr ON fr.id = files.file
+         JOIN FR_File_Extended fre ON fre.parent = fr.id
+         JOIN fr_file_responsibles ffr ON fr.id = ffr.owner AND fr.id_type = ffr.owner_type
+         JOIN so_beard sb ON ffr.responsible = sb.id AND ffr.responsible_type = sb.id_type
+         LEFT JOIN FR_FileSettings setting ON setting.organization = fru.organization AND setting.isDeleted <> 0
+         LEFT JOIN nunid2punid_map n2pNewStoragePeriod ON n2pNewStoragePeriod.nunid = files.shelfLifeNew
+         LEFT JOIN SPD_Period spd ON spd.id_type || LPAD(spd.id || '', 12, '0') =
+                                     CASE
+                                         WHEN fru.statusGeneral = 'ACTIVE' OR
+                                              (fru.statusGeneral = 'PROJECT' AND fr.statusGeneral = 'PROJECT')
+                                             THEN fr.shelfLife_type || LPAD(fr.shelfLife || '', 12, '0')
+                                         WHEN fru.statusGeneral = 'PROJECT' AND fr.statusGeneral = 'FORMED'
+                                             THEN COALESCE(SUBSTRING(n2pNewStoragePeriod.punid, 1, 16),
+                                                           fr.shelfLife_type || LPAD(fr.shelfLife || '', 12, '0'))
+                                         ELSE SUBSTRING(n2pNewStoragePeriod.punid, 1, 16)
+                                         END
+WHERE fr.indexfile = '100-02'
+GROUP BY 1
+ORDER BY 1;
