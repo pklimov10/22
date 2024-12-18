@@ -1,7 +1,3 @@
-Что надопоменять в скрпите что бы работала такая комбинация 
-./replace_configs.sh -g app --enable-cert-gen --generate-cert app.com
-
-
 #!/bin/bash
 
 ###########################################
@@ -94,13 +90,14 @@ LOCK_FILE="/tmp/config_manager.lock"          # Файл блокировки д
 SCRIPT_TIMEOUT=3600                           # Таймаут выполнения скрипта (в секундах)
 # Настройки сертификатов
 CERT_GENERATION_ENABLED="false"               # По умолчанию генерация сертификатов выключена
-
+CERT_GENERATION_REQUESTED="false"
+CERT_NAME=""
 ###########################################
 # СИСТЕМНЫЕ КОНСТАНТЫ (не изменять)
 ###########################################
 
 readonly SCRIPT_NAME=$(basename "$0")
-readonly VERSION="1.2.3"
+readonly VERSION="1.3.0"
 readonly DEFAULT_SOURCE_CONFIG_PATH="${BASE_CONFIG_DIR}/default_variables.conf"
 
 ###########################################
@@ -1000,8 +997,7 @@ EOF
         -out "$p12_file" \
         -name "$dns_name" \
         -passout "pass:$CERT_PASSWORD" \
-        -passin "pass:$CERT_PASSWORD"  \
-        -legacy
+        -passin "pass:$CERT_PASSWORD"
 
     if [ $? -ne 0 ]; then
         log "ERROR" "Ошибка при создании PKCS12"
@@ -1152,26 +1148,43 @@ main() {
 while [[ $# -gt 0 ]]; do
     case $1 in
         # Существующие опции
-        -g) SERVER_GROUP="$2"; shift 2 ;;
-        -s) CUSTOM_SOURCE="$2"; shift 2 ;;
-        -q) VERBOSE=false; shift ;;
-        -b) BACKUP=false; shift ;;
-        -d) DRY_RUN=true; shift ;;
-        -h) show_help ;;
-        -v) echo "$SCRIPT_NAME версия $VERSION"; exit 0 ;;
+        -g)
+            SERVER_GROUP="$2"
+            shift 2
+            ;;
+        -s)
+            CUSTOM_SOURCE="$2"
+            shift 2
+            ;;
+        -q)
+            VERBOSE=false
+            shift
+            ;;
+        -b)
+            BACKUP=false
+            shift
+            ;;
+        -d)
+            DRY_RUN=true
+            shift
+            ;;
+        -h)
+            show_help
+            ;;
+        -v)
+            echo "$SCRIPT_NAME версия $VERSION"
+            exit 0
+            ;;
 
         # Новые опции для сертификатов
-        --generate-cert)
-            generate_certificate "$2"
-            exit $?
-            ;;
-        --list-certs)
-            list_certificates
-            exit $?
-            ;;
         --enable-cert-gen)
             CERT_GENERATION_ENABLED="true"
             shift
+            ;;
+        --generate-cert)
+            CERT_GENERATION_REQUESTED=true
+            CERT_NAME="$2"
+            shift 2
             ;;
         --cert-days)
             CERT_DEFAULT_DAYS="$2"
@@ -1215,7 +1228,20 @@ while [[ $# -gt 0 ]]; do
         *) echo "Неизвестная опция: $1"; show_help ;;
     esac
 done
+# Генерация сертификата перед основной логикой, если запрошено
+if [[ "$CERT_GENERATION_REQUESTED" == "true" ]]; then
+    if [[ "$CERT_GENERATION_ENABLED" != "true" ]]; then
+        log "ERROR" "Генерация сертификатов не включена. Используйте --enable-cert-gen"
+        exit 1
+    fi
 
+    if [[ -z "$CERT_NAME" ]]; then
+        log "ERROR" "Не указано имя для сертификата. Используйте --generate-cert DOMAIN"
+        exit 1
+    fi
+
+    generate_certificate "$CERT_NAME"
+fi
 # Выбор конфигурационного файла
 select_config_file "$SERVER_GROUP" "$CUSTOM_SOURCE"
 
