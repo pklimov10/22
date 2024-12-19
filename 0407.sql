@@ -1,168 +1,170 @@
-WITH reqid AS (
-	SELECT
-		item id
-	,	item_type id_type
-	FROM
-		qr_id_list
-	WHERE
-		request = 1583013 AND
-		request_type = 2108
-	LIMIT 1
-)
-, tn_fields AS (
-	SELECT
-		tf.owner
-	,	tf.cmjfield
-	,	tfs.value string_value
-	,	tfd.value datetime_value
-	,	tfdc.value decimal_value
-	FROM
-		tn_field tf
-	LEFT JOIN
-		tn_field_string tfs
-			ON tfs.id = tf.id
-	LEFT JOIN
-		tn_field_datetime tfd
-			ON tfd.id = tf.id
-	LEFT JOIN
-		tn_field_decimal tfdc
-			ON tfdc.id = tf.id
-)
-SELECT
-	rkk.id
-,	rkk.id_type
-,	concat(m.replica, ':', n.nunid) unid
-,	rkk.id_type rkkidtype
-,	m.replica
-,	concat(
-		coalesce(rkk.regnumprist, '')
-	,	coalesce(rkk.regnumcnt::varchar, '')
-	,	coalesce(rkk.regnumfin, '')
-	) regnumber
-,	CASE
-		WHEN rp.orig_type = 0 THEN rp.orig_shortname
-		WHEN rp.orig_type = 1 THEN concat(rp.orig_shortname, ', ', rp.orig_postname)
-		WHEN rp.orig_type = 2
-			THEN (
-				SELECT
-					su.fullname
-				FROM
-					so_structureunit su
-				WHERE
-					su.beard = rp.id
-			)
-	END registrationplace
-,	CASE
-		WHEN tf_state.string_value = 'Project'
-			THEN to_char(timezone('0', rb.created_date), 'HH24:MI')
-		ELSE to_char(timezone('0', tf_sending.datetime_value), 'HH24:MI')
-	END sendingtime
-,	CASE
-		WHEN tf_state.string_value = 'Project' THEN to_char(rb.created_date, 'dd.MM.yyyy')
-		ELSE to_char(tf_sending.datetime_value, 'dd.MM.yyyy')
-	END sendingdate
-,	to_char(timezone('0', tf_receiving.datetime_value), 'HH24:MI') receivingtime
-,	to_char(tf_receiving.datetime_value, 'dd.MM.yyyy') receivingdate
-,	tf_sender.string_value sender
-,	tf_receiver.string_value receiver
-,	(
-		SELECT
-			su.fullname
-		FROM
-			so_beard sb
-		JOIN
-			so_structureunit su
-				ON su.beard = sb.id
-		WHERE
-			sb.cmjunid = concat(
-				split_part(tf_receiverdep.string_value, '%', 4)
-			,	split_part(tf_receiverdep.string_value, '%', 5)
-			)
-	) receiverdep
-,	tf_senderdep.string_value senderdephierarchy
-,	tf_receiverdep.string_value receiverdephierarchy
-,	tf_totalsent.decimal_value totalsent
-,	tf_totalnotreceived.decimal_value totalnotreceived
-,	tf_totalreceived.decimal_value totalreceived
-,	tf_totalreceivedbyfact.decimal_value totalreceivedbyfact
-FROM
-	f_dp_rkkbase rb
-NATURAL JOIN
-	f_dp_rkk rkk
-JOIN
-	f_dp_intrkk ir
-		ON rb.id = ir.id
-LEFT JOIN
-	f_dp_rkkbase_theme theme
-		ON theme.owner = ir.id
-LEFT JOIN
-	so_beard rp
-		ON rp.id = rb.regcode
-LEFT JOIN
-	so_beard signer
-		ON signer.id = ir.signsigner
-LEFT JOIN
-	ss_module m
-		ON m.id = rb.module
-LEFT JOIN
-	ss_moduletype mt
-		ON mt.id = m.type AND
-		mt.alias = 'DTR'
-JOIN
-	nunid2punid_map n
-		ON left(n.punid, 16) = to_char((rkk.id_type * power(10, 12))::bigint + rkk.id, 'FM0000000000000000')
-LEFT JOIN
-	tn_fields tf_state
-		ON tf_state.owner = rb.id AND
-		tf_state.cmjfield = 'state'
-LEFT JOIN
-	tn_fields tf_sending
-		ON tf_sending.owner = rb.id AND
-		tf_sending.cmjfield = 'sendingDateTime'
-LEFT JOIN
-	tn_fields tf_receiving
-		ON tf_receiving.owner = rb.id AND
-		tf_receiving.cmjfield = 'receivingDateTime'
-LEFT JOIN
-	tn_fields tf_sender
-		ON tf_sender.owner = rb.id AND
-		tf_sender.cmjfield = 'sender'
-LEFT JOIN
-	tn_fields tf_receiver
-		ON tf_receiver.owner = rb.id AND
-		tf_receiver.cmjfield = 'receiver'
-LEFT JOIN
-	tn_fields tf_receiverdep
-		ON tf_receiverdep.owner = rb.id AND
-		tf_receiverdep.cmjfield = 'receiverDepBeard'
-LEFT JOIN
-	tn_fields tf_senderdep
-		ON tf_senderdep.owner = rb.id AND
-		tf_senderdep.cmjfield = 'senderDepHierarchy'
-LEFT JOIN
-	tn_fields tf_receiverdep_hierarchy
-		ON tf_receiverdep_hierarchy.owner = rb.id AND
-		tf_receiverdep_hierarchy.cmjfield = 'receiverDepHierarchy'
-LEFT JOIN
-	tn_fields tf_totalsent
-		ON tf_totalsent.owner = rb.id AND
-		tf_totalsent.cmjfield = 'totalSent'
-LEFT JOIN
-	tn_fields tf_totalnotreceived
-		ON tf_totalnotreceived.owner = rb.id AND
-		tf_totalnotreceived.cmjfield = 'totalNotReceived'
-LEFT JOIN
-	tn_fields tf_totalreceived
-		ON tf_totalreceived.owner = rb.id AND
-		tf_totalreceived.cmjfield = 'totalReceived'
-LEFT JOIN
-	tn_fields tf_totalreceivedbyfact
-		ON tf_totalreceivedbyfact.owner = rb.id AND
-		tf_totalreceivedbyfact.cmjfield = 'totalReceivedByFact'
-WHERE
-	rkk.id = (
-		SELECT
-			id
-		FROM
-			reqid
-	);
+server:
+  # Порты для прослушивания HTTP и gRPC запросов Promtail.
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  # Файл для хранения текущих позиций чтения файлов логов.
+  filename: /tmp/positions.yaml
+
+clients:
+  # Адрес вашего Loki сервера, куда будут отправляться логи.
+  - url: http://10.7.39.5:3100/loki/api/v1/push  # Укажите адрес вашего Loki сервера.
+
+scrape_configs:
+  - job_name: wildfly-logs
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          host_ip: 10.7.39.15
+          job: wildfly
+          __path__: /u01/CM/wildfly/standalone/log/2_cm_errors.log  # Укажите путь к вашим логам WildFly.
+    # Релабелинг для извлечения имени файла из полного пути.
+    relabel_configs:
+      - source_labels: ['__filename__']
+        target_label: 'filename'
+        regex: '.*/([^/]+)$'
+        replacement: '$1'
+    pipeline_stages:
+      # Многострочная обработка логов.
+      - multiline:
+          # Регулярное выражение, определяющее начало новой записи лога.
+          firstline: '^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}'
+          # Максимальное время ожидания следующей строки.
+          max_wait_time: 3s
+      # Разбор логов с помощью регулярного выражения.
+      - regex:
+          # Регулярное выражение для парсинга строк логов.
+          expression: '^(?P<timestamp>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}) (?P<level>[A-Z]+) \[(?P<class>[^\]]+)\] \((?P<thread>[^)]+)\) (?P<message>.*)$'
+      # Установка правильного временного штампа для каждой записи лога.
+      - timestamp:
+          source: timestamp
+          format: "2006-01-02 15:04:05,000"
+          location: Europe/Moscow
+      # Преобразование извлеченных данных в метки и удаление ненужных меток.
+      - labels:
+          level:
+          remove: "timestamp|thread|class"
+
+
+
+
+Пример лога 
+2024-12-20 02:00:38,927 WARN  [ru.intertrust.cm_sochi.srv.connector.sochi.notifications.pkd.SochiMailNotificationChannel] (EJB default - 1) not sended to personId = RdbmsId{typeId='5369', id=9211}, notificationType = EXEC1_52, reason = freemarker.template.TemplateModelException: Method "public ru.intertrust.cm.core.business.api.dto.IdentifiableObjectCollection ru.intertrust.cm.core.tools.Session.findByQuery(java.lang.String,java.lang.Object[])" threw an exception when invoked on ru.intertrust.cm.core.tools.Session object "ru.intertrust.cm.core.tools.Session@589bf345". See cause exception.
+
+The failing instruction:
+==> #assign collection = session.findByQu...  [in template "Template" at line 10, column 179]
+2024-12-20 02:00:38,928 WARN  [ru.intertrust.cm_sochi.srv.connector.sochi.notifications.pkd.SochiMailNotificationChannel] (EJB default - 1) Notification for addressee RdbmsId{typeId='5022', id=9034} not send. Person email field is empty.
+2024-12-20 02:00:38,928 WARN  [ru.intertrust.cm_sochi.srv.connector.sochi.notifications.pkd.SochiMailNotificationChannel] (EJB default - 1) not sended to personId = RdbmsId{typeId='5369', id=9210}, notificationType = EXEC1_52, reason = message not created
+2024-12-20 02:00:39,010 ERROR [ru.intertrust.cm_sochi.srv.connector.sochi.notifications.pkd.SochiMailNotificationChannel] (EJB default - 5) Error send mail to null: ru.intertrust.cm.core.model.NotificationException: freemarker.template.TemplateModelException: Method "public ru.intertrust.cm.core.business.api.dto.IdentifiableObjectCollection ru.intertrust.cm.core.tools.Session.findByQuery(java.lang.String,java.lang.Object[])" threw an exception when invoked on ru.intertrust.cm.core.tools.Session object "ru.intertrust.cm.core.tools.Session@23a78b7". See cause exception.
+
+The failing instruction:
+==> #assign collection = session.findByQu...  [in template "Template" at line 10, column 179]
+        at ru.intertrust.cm.core.business.impl.services.FreeMarkerFormatterImpl.format(FreeMarkerFormatterImpl.java:53)
+        at ru.intertrust.cm.core.business.impl.services.FreeMarkerFormatterImpl.format(FreeMarkerFormatterImpl.java:34)
+        at ru.intertrust.cm.core.business.impl.NotificationTextFormerImpl.formatTemplate(NotificationTextFormerImpl.java:140)
+        at ru.intertrust.cm.core.business.impl.NotificationTextFormerImpl.format(NotificationTextFormerImpl.java:69)
+        at ru.intertrust.cm_sochi.srv.connector.sochi.notifications.pkd.SochiMailNotificationChannel.createMailMessage(SochiMailNotificationChannel.java:430)
+        at ru.intertrust.cm_sochi.srv.connector.sochi.notifications.pkd.SochiMailNotificationChannel.sendMailOneAddressee(SochiMailNotificationChannel.java:357)
+        at ru.intertrust.cm_sochi.srv.connector.sochi.notifications.pkd.SochiMailNotificationChannel.sendMail(SochiMailNotificationChannel.java:235)
+        at ru.intertrust.cm_sochi.srv.connector.sochi.notifications.pkd.SochiMailNotificationChannel.doSend(SochiMailNotificationChannel.java:184)
+        at ru.intertrust.cm_sochi.srv.connector.sochi.notifications.pkd.SochiMailNotificationChannel.lambda$0(SochiMailNotificationChannel.java:161)
+        at ru.intertrust.cm_sochi.srv.util.ctgtaskspool.CategorizedTasksPoolSync.addTask(CategorizedTasksPoolSync.java:42)
+        at ru.intertrust.cm_sochi.srv.connector.sochi.notifications.pkd.PkdBaseChannel.send(PkdBaseChannel.java:93)
+        at ru.intertrust.cm_sochi.srv.connector.sochi.notifications.pkd.SochiMailNotificationChannel.send(SochiMailNotificationChannel.java:154)
+        at ru.intertrust.cm.core.business.impl.NotificationServiceImpl.sendSync(NotificationServiceImpl.java:247)
+        at ru.intertrust.cm.core.business.impl.NotificationServiceImpl.sendNow(NotificationServiceImpl.java:98)
+        at sun.reflect.GeneratedMethodAccessor1112.invoke(Unknown Source)
+        at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+        at java.lang.reflect.Method.invoke(Method.java:498)
+        at org.jboss.as.ee.component.ManagedReferenceMethodInterceptor.processInvocation(ManagedReferenceMethodInterceptor.java:52)
+        at org.jboss.invocation.InterceptorContext.proceed(InterceptorContext.java:422)
+        at org.jboss.invocation.InterceptorContext$Invocation.proceed(InterceptorContext.java:509)
+        at org.jboss.as.weld.interceptors.Jsr299BindingsInterceptor.delegateInterception(Jsr299BindingsInterceptor.java:79)
+        at org.jboss.as.weld.interceptors.Jsr299BindingsInterceptor.doMethodInterception(Jsr299BindingsInterceptor.java:89)
+        at org.jboss.as.weld.interceptors.Jsr299BindingsInterceptor.processInvocation(Jsr299BindingsInterceptor.java:102)
+        at org.jboss.as.ee.component.interceptors.UserInterceptorFactory$1.processInvocation(UserInterceptorFactory.java:63)
+        at org.jboss.invocation.InterceptorContext.proceed(InterceptorContext.java:422)
+        at org.jboss.as.ejb3.component.invocationmetrics.ExecutionTimeInterceptor.processInvocation(ExecutionTimeInterceptor.java:43)
+        at org.jboss.invocation.InterceptorContext.proceed(InterceptorContext.java:422)
+        at org.jboss.as.jpa.interceptor.SBInvocationInterceptor.processInvocation(SBInvocationInterceptor.java:47)
+        at org.jboss.invocation.InterceptorContext.proceed(InterceptorContext.java:422)
+        at org.jboss.as.ee.concurrent.ConcurrentContextInterceptor.processInvocation(ConcurrentContextInterceptor.java:45)
+        at org.jboss.invocation.InterceptorContext.proceed(InterceptorContext.java:422)
+        at org.jboss.invocation.InitialInterceptor.processInvocation(InitialInterceptor.java:40)
+        at org.jboss.invocation.InterceptorContext.proceed(InterceptorContext.java:422)
+        at org.jboss.invocation.ChainedInterceptor.processInvocation(ChainedInterceptor.java:53)
+        at org.jboss.as.ee.component.interceptors.ComponentDispatcherInterceptor.processInvocation(ComponentDispatcherInterceptor.java:52)
+        at org.jboss.invocation.InterceptorContext.proceed(InterceptorContext.java:422)
+        at org.jboss.as.ejb3.component.pool.PooledInstanceInterceptor.processInvocation(PooledInstanceInterceptor.java:51)
+        at org.jboss.invocation.InterceptorContext.proceed(InterceptorContext.java:422)
+        at org.jboss.as.ejb3.component.interceptors.AdditionalSetupInterceptor.processInvocation(AdditionalSetupInterceptor.java:54)
+        at org.jboss.invocation.InterceptorContext.proceed(InterceptorContext.java:422)
+        at org.jboss.as.ejb3.tx.CMTTxInterceptor.invokeInOurTx(CMTTxInterceptor.java:237)
+        at org.jboss.as.ejb3.tx.CMTTxInterceptor.required(CMTTxInterceptor.java:362)
+        at org.jboss.as.ejb3.tx.CMTTxInterceptor.processInvocation(CMTTxInterceptor.java:144)
+        at org.jboss.invocation.InterceptorContext.proceed(InterceptorContext.java:422)
+        at org.jboss.invocation.InterceptorContext$Invocation.proceed(InterceptorContext.java:509)
+        at org.jboss.weld.module.ejb.AbstractEJBRequestScopeActivationInterceptor.aroundInvoke(AbstractEJBRequestScopeActivationInterceptor.java:81)
+        at org.jboss.as.weld.ejb.EjbRequestScopeActivationInterceptor.processInvocation(EjbRequestScopeActivationInterceptor.java:89)
+        at org.jboss.invocation.InterceptorContext.proceed(InterceptorContext.java:422)
+        at org.jboss.as.ejb3.component.interceptors.CurrentInvocationContextInterceptor.processInvocation(CurrentInvocationContextInterceptor.java:41)
+        at org.jboss.invocation.InterceptorContext.proceed(InterceptorContext.java:422)
+        at org.jboss.as.ejb3.component.invocationmetrics.WaitTimeInterceptor.processInvocation(WaitTimeInterceptor.java:47)
+        at org.jboss.invocation.InterceptorContext.proceed(InterceptorContext.java:422)
+        at org.jboss.as.ejb3.security.SecurityContextInterceptor.processInvocation(SecurityContextInterceptor.java:100)
+        at org.jboss.invocation.InterceptorContext.proceed(InterceptorContext.java:422)
+        at org.jboss.as.ejb3.deployment.processors.StartupAwaitInterceptor.processInvocation(StartupAwaitInterceptor.java:22)
+        at org.jboss.invocation.InterceptorContext.proceed(InterceptorContext.java:422)
+        at org.jboss.as.ejb3.component.interceptors.ShutDownInterceptorFactory$1.processInvocation(ShutDownInterceptorFactory.java:64)
+        at org.jboss.invocation.InterceptorContext.proceed(InterceptorContext.java:422)
+        at org.jboss.as.ejb3.component.interceptors.LoggingInterceptor.processInvocation(LoggingInterceptor.java:67)
+        at org.jboss.invocation.InterceptorContext.proceed(InterceptorContext.java:422)
+        at org.jboss.as.ee.component.NamespaceContextInterceptor.processInvocation(NamespaceContextInterceptor.java:50)
+        at org.jboss.invocation.InterceptorContext.proceed(InterceptorContext.java:422)
+        at org.jboss.invocation.ContextClassLoaderInterceptor.processInvocation(ContextClassLoaderInterceptor.java:60)
+        at org.jboss.invocation.InterceptorContext.proceed(InterceptorContext.java:422)
+        at org.jboss.invocation.InterceptorContext.run(InterceptorContext.java:438)
+        at org.wildfly.security.manager.WildFlySecurityManager.doChecked(WildFlySecurityManager.java:627)
+        at org.jboss.invocation.AccessCheckingInterceptor.processInvocation(AccessCheckingInterceptor.java:57)
+        at org.jboss.invocation.InterceptorContext.proceed(InterceptorContext.java:422)
+        at org.jboss.invocation.ChainedInterceptor.processInvocation(ChainedInterceptor.java:53)
+        at org.jboss.as.ee.component.ViewService$View.invoke(ViewService.java:198)
+        at org.jboss.as.ee.component.ViewDescription$1.processInvocation(ViewDescription.java:185)
+        at org.jboss.invocation.InterceptorContext.proceed(InterceptorContext.java:422)
+        at org.jboss.as.ejb3.component.interceptors.LogDiagnosticContextRecoveryInterceptor.processInvocation(LogDiagnosticContextRecoveryInterceptor.java:82)
+        at org.jboss.invocation.InterceptorContext.proceed(InterceptorContext.java:422)
+        at org.jboss.as.ejb3.component.interceptors.AsyncFutureInterceptorFactory$2$2.runInvocation(AsyncFutureInterceptorFactory.java:152)
+        at org.jboss.as.ejb3.component.interceptors.AsyncInvocationTask.run(AsyncInvocationTask.java:81)
+        at org.jboss.threads.ContextClassLoaderSavingRunnable.run(ContextClassLoaderSavingRunnable.java:35)
+        at org.jboss.threads.EnhancedQueueExecutor.safeRun(EnhancedQueueExecutor.java:1982)
+        at org.jboss.threads.EnhancedQueueExecutor$ThreadBody.doRunTask(EnhancedQueueExecutor.java:1486)
+        at org.jboss.threads.EnhancedQueueExecutor$ThreadBody.run(EnhancedQueueExecutor.java:1377)
+        at java.lang.Thread.run(Thread.java:750)
+        at org.jboss.threads.JBossThread.run(JBossThread.java:485)
+Caused by: freemarker.template.TemplateModelException: Method "public ru.intertrust.cm.core.business.api.dto.IdentifiableObjectCollection ru.intertrust.cm.core.tools.Session.findByQuery(java.lang.String,java.lang.Object[])" threw an exception when invoked on ru.intertrust.cm.core.tools.Session object "ru.intertrust.cm.core.tools.Session@23a78b7". See cause exception.
+
+The failing instruction:
+==> #assign collection = session.findByQu...  [in template "Template" at line 10, column 179]
+        at freemarker.ext.beans.SimpleMethodModel.exec(SimpleMethodModel.java:135)
+        at freemarker.core.MethodCall._eval(MethodCall.java:98)
+        at freemarker.core.Expression.eval(Expression.java:111)
+        at freemarker.core.Assignment.accept(Assignment.java:106)
+        at freemarker.core.Environment.visit(Environment.java:265)
+        at freemarker.core.MixedContent.accept(MixedContent.java:93)
+        at freemarker.core.Environment.visit(Environment.java:265)
+        at freemarker.core.Environment.process(Environment.java:243)
+        at freemarker.template.Template.process(Template.java:277)
+        at ru.intertrust.cm.core.business.impl.services.FreeMarkerFormatterImpl.format(FreeMarkerFormatterImpl.java:50)
+        ... 81 more
+Caused by: java.lang.NullPointerException
+        at ru.intertrust.cm.core.tools.Session.findByQuery(Session.java:70)
+        at sun.reflect.GeneratedMethodAccessor1091.invoke(Unknown Source)
+        at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+        at java.lang.reflect.Method.invoke(Method.java:498)
+        at freemarker.ext.beans.BeansWrapper.invokeMethod(BeansWrapper.java:912)
+        at freemarker.ext.beans.SimpleMethodModel.exec(SimpleMethodModel.java:107)
+        ... 90 more
+
+2024-12-20 02:00:39,010 WARN  [ru.intertrust.cm_sochi.srv.connector.sochi.notifications.pkd.SochiMailNotificationChannel] (EJB default - 5) not sended to personId = RdbmsId{typeId='5369', id=7788}, notificationType = EXEC1_52, reason = freemarker.template.TemplateModelException: Method "public ru.intertrust.cm.core.business.api.dto.IdentifiableObjectCollection ru.intertrust.cm.core.tools.Session.findByQuery(java.lang.String,java.lang.Object[])" threw an exception when invoked on ru.intertrust.cm.core.tools.Session object "ru.intertrust.cm.core.tools.Session@23a78b7". See cause exception.
